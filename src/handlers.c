@@ -3,31 +3,13 @@
 #include "pico/stdlib.h"
 
 
-uint8_t homeCommand_handler(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
-	Vector steps;
-	while (!gpio_get(cxy->limitSwitches->z)) {
-		Vector move = {0, 0, -1};
-		computeSteps(&steps, &move);
-		moveSteppers(cxy, &steps, PULSE_DELAY_HOMING_Z);
-	}
-	while (!gpio_get(cxy->limitSwitches->x)) {
-		Vector move = {-1, 0, 0};
-		computeSteps(&steps, &move);
-		moveSteppers(cxy, &steps, PULSE_DELAY_HOMING_XY);
-	}
-	while (!gpio_get(cxy->limitSwitches->y)) {
-		Vector move = {0, -1, 0};
-		computeSteps(&steps, &move);
-		moveSteppers(cxy, &steps, PULSE_DELAY_HOMING_XY);
-	}
-	cxy->position.x = 0;
-	cxy->position.y = 0;
-	cxy->position.z = 0;
+uint8_t homeCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	artichokeHomeAxis(art);
 	return SUCCESS_RESPONSE;
 }
 
 
-uint8_t moveCommand_handler(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
+uint8_t moveCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (i2c_get_read_available(i2c0) < 6) {
 		continue;
 	}
@@ -41,14 +23,14 @@ uint8_t moveCommand_handler(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
 	y *= XY_MULTIPLIER;
 	z *= Z_MULTIPLIER;
 	Vector position = {x, y, z};
-	if (!setPosition(cxy, &position)) {
+	if (!artichokeSetPosition(art, &position)) {
 		return ERROR_RESPONSE;
 	}
 	return SUCCESS_RESPONSE;
 }
 
 
-uint8_t shiftCommand_handler(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
+uint8_t shiftCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (i2c_get_read_available(i2c0) < 6) {
 		continue;
 	}
@@ -63,21 +45,21 @@ uint8_t shiftCommand_handler(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
 	Vector position;
 	uint32_t mask = 0b0111111111111111;
 	if (shift.x >> 15 == 0) {
-		position.x = cxy->position.x + shift.x & mask;
+		position.x = art->position.x + shift.x & mask;
 	} else {
-		position.x = cxy->position.x - shift.x & mask;
+		position.x = art->position.x - shift.x & mask;
 	}
 	if (shift.y >> 15 == 0) {
-		position.y = cxy->position.y + shift.y & mask;
+		position.y = art->position.y + shift.y & mask;
 	} else {
-		position.y = cxy->position.y - shift.y & mask;
+		position.y = art->position.y - shift.y & mask;
 	}
 	if (shift.z >> 15 == 0) {
-		position.z = cxy->position.z + shift.z & mask;
+		position.z = art->position.z + shift.z & mask;
 	} else {
-		position.z = cxy->position.z - shift.z & mask;
+		position.z = art->position.z - shift.z & mask;
 	}
-	if (!setPosition(cxy, &position)) {
+	if (!artichokeSetPosition(art, &position)) {
 		return ERROR_RESPONSE;
 	}
 	return SUCCESS_RESPONSE;

@@ -17,5 +17,6 @@ void vector_subtract(Vector *a, Vector *b);
 void vector_copy(Vector *a, Vector *b);
 void vector_multiply_floor(Vector *v, double scalar);
 bool vector_equals(Vector *v, int32_t x, int32_t y, int32_t z);
+bool vector_comp(Vector *a, Vector *b);
 
 #endif

@@ -2,9 +2,8 @@
 #define SOURCE_HEADER
 
 
-#include "corexy.h"
+#include "artichoke.h"
 
-
-void configure(CoreXY *cxy);
+void configure(Artichoke *art);
 
 #endif

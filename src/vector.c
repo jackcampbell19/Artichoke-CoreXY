@@ -41,3 +41,7 @@ void vector_multiply_floor(Vector *v, double scalar) {
 bool vector_equals(Vector *v, int32_t x, int32_t y, int32_t z) {
 	return v->x == x && v->y == y && v->z == z;
 }
+
+bool vector_comp(Vector *a, Vector *b) {
+	return a->x == b->x && a->y == b->y && a->z == b->z;
+}

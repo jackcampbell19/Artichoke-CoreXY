@@ -6,7 +6,7 @@
 #include "hardware/clocks.h"
 #include "handlers.h"
 #include <string.h>
-#include "corexy.h"
+#include "artichoke.h"
 #include "paint.h"
 #include "motors.h"
 
@@ -41,7 +41,7 @@ void initIn(uint32_t pin) {
 /**
  * Configures the board for the program.
 */
-void configure(CoreXY *cxy) {
+void configure(Artichoke *art) {
 	stdio_init_all();
 	gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -55,19 +55,19 @@ void configure(CoreXY *cxy) {
 	gpio_pull_up(PIN_SCL);
     i2c_set_slave_mode(i2c0, true, I2C_ADDR);
 	// Stepper A
-	initStepper(cxy->aStepper, true);
-	initIn(cxy->limitSwitches->x);
+	initStepper(art->aStepper, true);
+	initIn(art->limitSwitches->x);
 	// Stepper B
-	initStepper(cxy->bStepper, false);
-	initIn(cxy->limitSwitches->y);
+	initStepper(art->bStepper, false);
+	initIn(art->limitSwitches->y);
 	// Stepper Z
-	initStepper(cxy->zStepper, true);
-	initIn(cxy->limitSwitches->z);
+	initStepper(art->zStepper, true);
+	initIn(art->limitSwitches->z);
 	// Paint Dispenser
-	initOut(cxy->paintDispenser->electromagnet);
-	initIn(cxy->paintDispenser->limitSwitch);
-	initStepper(cxy->paintDispenser->horizontalStepper, true);
-	initStepper(cxy->paintDispenser->verticalStepper, false);
+	initOut(art->paintDispenser->electromagnet);
+	initIn(art->paintDispenser->limitSwitch);
+	initStepper(art->paintDispenser->horizontalStepper, true);
+	initStepper(art->paintDispenser->verticalStepper, false);
 	// Motors
 	initOut(PIN_IN1);
 	initOut(PIN_IN2_IN3);
@@ -81,7 +81,7 @@ void configure(CoreXY *cxy) {
  * Waits for a command to be issues over I2C and proccessed it once it is
  * recieved.
 */
-void waitForCommand(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
+void waitForCommand(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (true) {
 		if (i2c_get_read_available(i2c0) > 0) {
 			buffer[0] = i2c_read_byte_raw(i2c0);
@@ -91,9 +91,9 @@ void waitForCommand(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
 				gpio_put(PIN_BUSY_LINE, true);
 				sleep_ms(25);
 				if (code == HOME_CODE) {
-					response = homeCommand_handler(cxy, buffer);
+					response = homeCommand_handler(art, buffer);
 				} else if (code == MOVE_CODE) {
-					response = moveCommand_handler(cxy, buffer);
+					response = moveCommand_handler(art, buffer);
 				}
 				gpio_put(PIN_BUSY_LINE, false);
 				sleep_ms(25);
@@ -111,27 +111,32 @@ void waitForCommand(CoreXY *cxy, uint8_t buffer[BUFFER_SIZE]) {
 }
 
 
+void testAll(Artichoke *art) {
+	// artichokeHomeAxis(art);
+	artichokeMoveRel(art, 500, 0, 0, 1200, true);
+}
+
+
 int main() {
 	// Stepper motors
-	Stepper aStepper = {PIN_A_STP, PIN_A_DIR, PIN_AB_EN};
-	Stepper bStepper = {PIN_B_STP, PIN_B_DIR, PIN_AB_EN};
-	Stepper zStepper = {PIN_Z_STP, PIN_Z_DIR, PIN_Z_EN};
-	Stepper paintHorizontalStepper = {PIN_PAINT_HORIZONTAL_STP, PIN_PAINT_DIR, PIN_PAINT_EN};
-	Stepper paintVerticalStepper = {PIN_PAINT_VERTICAL_STP, PIN_PAINT_DIR, PIN_PAINT_EN};
+	Stepper aStepper = {PIN_A_STP, PIN_A_DIR, PIN_AB_EN, 0};
+	Stepper bStepper = {PIN_B_STP, PIN_B_DIR, PIN_AB_EN, 0};
+	Stepper zStepper = {PIN_Z_STP, PIN_Z_DIR, PIN_Z_EN, 0};
+	Stepper paintHorizontalStepper = {PIN_PAINT_HORIZONTAL_STP, PIN_PAINT_DIR, PIN_PAINT_EN, 0};
+	Stepper paintVerticalStepper = {PIN_PAINT_VERTICAL_STP, PIN_PAINT_DIR, PIN_PAINT_EN, 0};
 	// Limit switches
 	Vector limitSwitches = {PIN_X_LIM, PIN_Y_LIM, PIN_Z_LIM};
-	// Position
-	Vector paintPosition = {0, 0, 0};
 	// Paint dispenser
+	Vector color = {-1, -1, -1};
 	PaintDispenser paintDispenser = {
 		&paintHorizontalStepper,
 		&paintVerticalStepper,
 		PIN_PAINT_LIM,
 		PIN_ELECTROMAGNET_EN,
-		&paintPosition
+		&color
 	};
-	// CoreXY
-	CoreXY cxy = {
+	// Artichoke
+	Artichoke art = {
 		{CXY_SIZE_X, CXY_SIZE_Y, CXY_SIZE_Z},
 		{0, 0, 0},
 		&aStepper,
@@ -142,17 +147,14 @@ int main() {
 		CUP_HOLDER_POSITION_HIDDEN
 	};
 	// Configure pins
-	configure(&cxy);
+	configure(&art);
+	// artichokeHomeAll(&art);
 	uint8_t buffer[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
-	// waitForCommand(&cxy, buffer);
-	// homePaintDispenser(&cxy);
-	homeCupHolder();
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_STANDARD);
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_HIDDEN);
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_EXTENDED);
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_STANDARD);
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_HIDDEN);
-	setCupHolderPosition(&cxy, CUP_HOLDER_POSITION_EXTENDED);
+	// waitForCommand(&art, buffer);
+	while (true) {
+		testAll(&art);
+		break;
+	}
 	return 0;
 }
