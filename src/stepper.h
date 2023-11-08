@@ -11,7 +11,7 @@ typedef struct {
 	int32_t current;
 } Stepper;
 
-void stepperMoveAbs(Stepper *stepper, int32_t targetStep, uint64_t delay);
-void stepperMoveRel(Stepper *stepper, int32_t steps, bool direction, uint64_t delay);
+void move_stepper_abs(Stepper *stepper, int32_t targetStep, uint64_t delay);
+void move_stepper_rel(Stepper *stepper, int32_t steps, bool direction, uint64_t delay);
 
 #endif

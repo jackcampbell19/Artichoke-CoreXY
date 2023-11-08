@@ -5,10 +5,12 @@
 #include "constants.h"
 #include <stdint.h>
 
-uint8_t homeCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
-uint8_t moveCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
-uint8_t shiftCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
-uint8_t dispensePaint_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
-uint8_t swapTool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t home_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t shift_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t measure_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t dispense_paint_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t swap_tool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
+uint16_t subspace_move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]);
 
 #endif

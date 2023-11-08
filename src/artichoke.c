@@ -6,11 +6,7 @@
 #include "motors.h"
 
 
-/**
- * Returns true of the vector "tpos" lies within the bounds of the
- * Artichoke machine, false otherwise.
-*/
-bool artichokeValidatePosition(Artichoke *art, Vector *tpos) {
+bool _validate_position(Artichoke *art, Vector *tpos) {
 	if (tpos->x < 0 || tpos->x > art->size.x) {
 		return false;
 	}
@@ -24,12 +20,7 @@ bool artichokeValidatePosition(Artichoke *art, Vector *tpos) {
 }
 
 
-/**
- * Moves the steppers of "art" in sync using the values of the "steps"
- * vector. Moves the a stepper x times, the b stepper y times, and the
- * z stepper z times.
-*/
-void artichokeMoveSteppers(Artichoke *art, Vector *steps, uint64_t delay) {
+void _move_steppers(Artichoke *art, Vector *steps, uint64_t delay) {
 	gpio_put(art->aStepper->dir, steps->x >= 0);
 	gpio_put(art->bStepper->dir, steps->y >= 0);
 	gpio_put(art->zStepper->dir, steps->z >= 0);
@@ -52,28 +43,19 @@ void artichokeMoveSteppers(Artichoke *art, Vector *steps, uint64_t delay) {
 }
 
 
-/**
- * Computes the required number of steps/direction for each 
- * motor (a,b,z) to achieve the delta vector. Stores the result
- * in "steps".
-*/
-void artichokeComputeSteps(Vector *steps, Vector *delta) {
+void _compute_steps(Vector *steps, Vector *delta) {
 	steps->x = -(delta->y + delta->x);
 	steps->y = delta->y - delta->x;
 	steps->z = delta->z;
 }
 
 
-/**
- * Moves the Artichoke machine to the positon "tpos". Returns
- * true if the position is successful and false otherwise.
-*/
-bool artichokeSetPosition(Artichoke *art, Vector *tpos) {
+bool artichoke_set_position(Artichoke *art, Vector *tpos) {
 	/**
 	 * dx(x) = 1/2 (dx(a) + dx(b))
 	 * dx(y) = 1/2 (dx(a) - dx(b))
 	*/
-	if (!artichokeValidatePosition(art, tpos)) {
+	if (!_validate_position(art, tpos)) {
 		return false;
 	}
 	double length = vector_length(&art->position, tpos);
@@ -86,9 +68,9 @@ bool artichokeSetPosition(Artichoke *art, Vector *tpos) {
 	Vector rebasedVector;
 	vector_copy(&rebasedVector, tpos);
 	vector_subtract(&rebasedVector, &art->position);
-	uint64_t (*delay_func)(double, double) = &calculate_delay;
+	uint64_t (*delay_func)(double, double) = &delay_default_us;
 	if (rebasedVector.x == 0 && rebasedVector.y == 0) {
-		delay_func = &calculate_delay_fast;
+		delay_func = &delay_z_us;
 	}
 	for (size_t i = 0; i < rounded_length + 1; i++) {
 		Vector delta;
@@ -100,8 +82,8 @@ bool artichokeSetPosition(Artichoke *art, Vector *tpos) {
 			continue;
 		}
 		Vector steps;
-		artichokeComputeSteps(&steps, &delta);
-		artichokeMoveSteppers(art, &steps, delay_func(i, rounded_length + 1));
+		_compute_steps(&steps, &delta);
+		_move_steppers(art, &steps, delay_func(i, rounded_length + 1));
 		vector_add(&prevPos, &delta);
 	}
 	art->position.x = tpos->x;
@@ -111,16 +93,16 @@ bool artichokeSetPosition(Artichoke *art, Vector *tpos) {
 }
 
 
-bool artichokeMoveRel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t delay, bool ignoreBounds) {
+bool move_axis_rel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t delay, bool ignoreBounds) {
 	Vector position = {x, y, z};
 	vector_add(&position, &art->position);
-	if (!ignoreBounds && !artichokeValidatePosition(art, &position)) {
+	if (!ignoreBounds && !_validate_position(art, &position)) {
 		return false;
 	}
 	Vector steps;
 	Vector move = {x, y, z};
-	artichokeComputeSteps(&steps, &move);
-	artichokeMoveSteppers(art, &steps, delay);
+	_compute_steps(&steps, &move);
+	_move_steppers(art, &steps, delay);
 	art->position.x += x;
 	art->position.y += y;
 	art->position.z += z;
@@ -128,95 +110,90 @@ bool artichokeMoveRel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t 
 }
 
 
-void artichokeHomeAxis(Artichoke *art) {
+void home_axis(Artichoke *art) {
 	Vector steps;
+	move_axis_rel(art, 0, 1000, 0, PULSE_DELAY_HOMING_XY, true);
 	while (!gpio_get(art->limitSwitches->z)) {
-		artichokeMoveRel(art, 0, 0, -1, PULSE_DELAY_HOMING_Z, true);
+		move_axis_rel(art, 0, 0, -1, PULSE_DELAY_HOMING_Z, true);
 	}
-	artichokeMoveRel(art, 0, 0, HOME_OFFSET_Z, PULSE_DELAY_HOMING_Z, true);
+	move_axis_rel(art, 0, 0, HOME_OFFSET_Z, PULSE_DELAY_HOMING_Z, true);
 	while (!gpio_get(art->limitSwitches->x)) {
-		artichokeMoveRel(art, -1, 0, 0, PULSE_DELAY_HOMING_XY, true);
+		move_axis_rel(art, -1, 0, 0, PULSE_DELAY_HOMING_XY, true);
 	}
-	artichokeMoveRel(art, HOME_OFFSET_X_Y, 0, 0, PULSE_DELAY_HOMING_XY, true);
+	move_axis_rel(art, HOME_OFFSET_X_Y, 0, 0, PULSE_DELAY_HOMING_XY, true);
 	while (!gpio_get(art->limitSwitches->y)) {
-		artichokeMoveRel(art, 0, -1, 0, PULSE_DELAY_HOMING_XY, true);
+		move_axis_rel(art, 0, -1, 0, PULSE_DELAY_HOMING_XY, true);
 	}
-	artichokeMoveRel(art, 0, HOME_OFFSET_X_Y, 0, PULSE_DELAY_HOMING_XY, true);
+	move_axis_rel(art, 0, HOME_OFFSET_X_Y, 0, PULSE_DELAY_HOMING_XY, true);
 	art->position.x = 0;
 	art->position.y = 0;
 	art->position.z = 0;
 }
 
 
-void artichokeHomeAll(Artichoke *art) {
-	artichokeHomeAxis(art);
-	homeCupHolder(art);
-	homePaintDispenser(art->paintDispenser);
-	homeCupDispenser();
+void home_all(Artichoke *art) {
+	home_axis(art);
+	home_cup_holder(art);
+	home_paint_dispenser(art->paintDispenser);
+	home_cup_dispenser();
 }
 
 
-void homeCupDispenser() {
-	motorOn(MOTOR_CUP_DISPENSER, false);
+void home_cup_dispenser() {
+	activate_motor(MOTOR_CUP_DISPENSER, false);
 	sleep_ms(2200);
 }
 
 
-void ejectCup(Artichoke *art) {
+void eject_cup(Artichoke *art) {
 
 }
 
 
-void dispensePaint(Artichoke *art, Vector *color) {
+void dispense_paint(Artichoke *art, Vector *color) {
 	if (vector_equals(art->paintDispenser->color, -1, -1, -1) || !vector_comp(art->paintDispenser->color, color)) {
-		ejectCup(art);
-		dispenseCup(art);
+		eject_cup(art);
+		dispense_cup(art);
 	}
 	// todo: set position
-	homePaintDispenser(art->paintDispenser);
+	home_paint_dispenser(art->paintDispenser);
 	//...
 }
 
 
-/**
- * Dispenses a single cup from the cup dispenser.
-*/
-void dispenseCup(Artichoke *art) {
-	motorOn(MOTOR_CUP_DISPENSER, true);
+void dispense_cup(Artichoke *art) {
+	activate_motor(MOTOR_CUP_DISPENSER, true);
 	sleep_ms(2200);
-	motorOn(MOTOR_CUP_DISPENSER, false);
+	activate_motor(MOTOR_CUP_DISPENSER, false);
 	sleep_ms(2200);
-	motorsOff();
+	deactivate_motors();
 }
 
 
-void waitForReflectanceValue(bool value) {
+void _wait_for_reflectance_value(bool value) {
 	while (gpio_get(PIN_REFLECTANCE) != value) {
 		continue;
 	}
 }
 
 
-/**
- * Sets the cup holder to one of the 3 positions.
-*/
-void setCupHolderPosition(Artichoke *art, int32_t position) {
+void set_cup_holder_position(Artichoke *art, int32_t position) {
 	int32_t delta = position - art->cupHolderPosition;
-	motorOn(MOTOR_CUP_HOLDER, delta >= 0);
+	activate_motor(MOTOR_CUP_HOLDER, delta >= 0);
 	for (size_t i = 0; i < abs(delta); i++) {
 		sleep_ms(1000);
-		waitForReflectanceValue(false);
+		_wait_for_reflectance_value(false);
 	}
-	motorsOff();
+	deactivate_motors();
 	art->cupHolderPosition = position;
 }
 
 
-void homeCupHolder(Artichoke *art) {
-	motorOn(MOTOR_CUP_HOLDER, false);
+void home_cup_holder(Artichoke *art) {
+	activate_motor(MOTOR_CUP_HOLDER, false);
 	sleep_ms(6000);
-	motorOn(MOTOR_CUP_HOLDER, true);
-	waitForReflectanceValue(false);
-	motorsOff();
+	activate_motor(MOTOR_CUP_HOLDER, true);
+	_wait_for_reflectance_value(false);
+	deactivate_motors();
 	art->cupHolderPosition = 0;
 }

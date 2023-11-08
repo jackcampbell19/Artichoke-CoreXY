@@ -3,13 +3,13 @@
 #include "pico/stdlib.h"
 
 
-uint8_t homeCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
-	artichokeHomeAxis(art);
+uint16_t home_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	home_axis(art);
 	return SUCCESS_RESPONSE;
 }
 
 
-uint8_t moveCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+uint16_t move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (i2c_get_read_available(i2c0) < 6) {
 		continue;
 	}
@@ -23,14 +23,14 @@ uint8_t moveCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	y *= XY_MULTIPLIER;
 	z *= Z_MULTIPLIER;
 	Vector position = {x, y, z};
-	if (!artichokeSetPosition(art, &position)) {
+	if (!artichoke_set_position(art, &position)) {
 		return ERROR_RESPONSE;
 	}
 	return SUCCESS_RESPONSE;
 }
 
 
-uint8_t shiftCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+uint16_t shift_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (i2c_get_read_available(i2c0) < 6) {
 		continue;
 	}
@@ -59,8 +59,27 @@ uint8_t shiftCommand_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	} else {
 		position.z = art->position.z - shift.z & mask;
 	}
-	if (!artichokeSetPosition(art, &position)) {
+	if (!artichoke_set_position(art, &position)) {
 		return ERROR_RESPONSE;
 	}
 	return SUCCESS_RESPONSE;
+}
+
+
+uint16_t measure_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	while (i2c_get_read_available(i2c0) < 1) {
+		continue;
+	}
+	uint8_t axis = i2c_read_byte_raw(i2c0);
+	int32_t x = axis == 0 ? -1 : 0;
+	int32_t y = axis == 1 ? -1 : 0;
+	int32_t z = axis == 2 ? -1 : 0;
+	uint32_t offset = axis == 2 ? HOME_OFFSET_Z : HOME_OFFSET_X_Y;
+	uint16_t count = 0;
+	while (!gpio_get(art->limitSwitches->z)) {
+		move_axis_rel(art, x, y, z, PULSE_DELAY_HOMING_XY, true);
+		count += 1;
+	}
+	move_axis_rel(art, -x * count, -y * count, -z * count, PULSE_DELAY_HOMING_XY, true);
+	return count - offset;
 }

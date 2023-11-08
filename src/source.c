@@ -11,14 +11,14 @@
 #include "motors.h"
 
 
-void initOut(uint32_t pin) {
+void init_out(uint32_t pin) {
 	gpio_init(pin);
     gpio_set_dir(pin, GPIO_OUT);
 	gpio_put(pin, false);
 }
 
 
-void initStepper(Stepper *stepper, bool initEn) {
+void init_stepper(Stepper *stepper, bool initEn) {
 	gpio_init(stepper->dir);
 	gpio_set_dir(stepper->dir, GPIO_OUT);
 	gpio_put(stepper->dir, false);
@@ -26,12 +26,12 @@ void initStepper(Stepper *stepper, bool initEn) {
 	gpio_set_dir(stepper->stp, GPIO_OUT);
 	gpio_put(stepper->stp, false);
 	if (initEn) {
-		initOut(stepper->en);
+		init_out(stepper->en);
 	}
 }
 
 
-void initIn(uint32_t pin) {
+void init_in(uint32_t pin) {
 	gpio_init(pin);
 	gpio_set_dir(pin, GPIO_IN);
 	gpio_pull_down(pin);
@@ -46,7 +46,7 @@ void configure(Artichoke *art) {
 	gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 	// Busy line
-	initOut(PIN_BUSY_LINE);
+	init_out(PIN_BUSY_LINE);
     // Initialize I2C interface
     i2c_init(i2c0, 100000);
     gpio_set_function(PIN_SDA, GPIO_FUNC_I2C);
@@ -55,45 +55,47 @@ void configure(Artichoke *art) {
 	gpio_pull_up(PIN_SCL);
     i2c_set_slave_mode(i2c0, true, I2C_ADDR);
 	// Stepper A
-	initStepper(art->aStepper, true);
-	initIn(art->limitSwitches->x);
+	init_stepper(art->aStepper, true);
+	init_in(art->limitSwitches->x);
 	// Stepper B
-	initStepper(art->bStepper, false);
-	initIn(art->limitSwitches->y);
+	init_stepper(art->bStepper, false);
+	init_in(art->limitSwitches->y);
 	// Stepper Z
-	initStepper(art->zStepper, true);
-	initIn(art->limitSwitches->z);
+	init_stepper(art->zStepper, true);
+	init_in(art->limitSwitches->z);
 	// Paint Dispenser
-	initOut(art->paintDispenser->electromagnet);
-	initIn(art->paintDispenser->limitSwitch);
-	initStepper(art->paintDispenser->horizontalStepper, true);
-	initStepper(art->paintDispenser->verticalStepper, false);
+	init_out(art->paintDispenser->electromagnet);
+	init_in(art->paintDispenser->limitSwitch);
+	init_stepper(art->paintDispenser->horizontalStepper, true);
+	init_stepper(art->paintDispenser->verticalStepper, false);
 	// Motors
-	initOut(PIN_IN1);
-	initOut(PIN_IN2_IN3);
-	initOut(PIN_IN4_IN5);
-	initOut(PIN_IN6_IN7);
-	initOut(PIN_IN8);
+	init_out(PIN_IN1);
+	init_out(PIN_IN2_IN3);
+	init_out(PIN_IN4_IN5);
+	init_out(PIN_IN6_IN7);
+	init_out(PIN_IN8);
 }
 
 
 /**
- * Waits for a command to be issues over I2C and proccessed it once it is
- * recieved.
+ * Waits for a command to be issued over I2C and proccesses it once it is
+ * recieved. Responds over I2C with response code.
 */
-void waitForCommand(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+void wait_for_command(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (true) {
 		if (i2c_get_read_available(i2c0) > 0) {
 			buffer[0] = i2c_read_byte_raw(i2c0);
 			uint8_t code = buffer[0] >> 4;
 			if (code == HOME_CODE || code == MOVE_CODE || code == SHIFT_CODE) {
-				uint8_t response = ERROR_RESPONSE;
+				uint16_t response = ERROR_RESPONSE;
 				gpio_put(PIN_BUSY_LINE, true);
 				sleep_ms(25);
 				if (code == HOME_CODE) {
-					response = homeCommand_handler(art, buffer);
+					response = home_handler(art, buffer);
 				} else if (code == MOVE_CODE) {
-					response = moveCommand_handler(art, buffer);
+					response = move_handler(art, buffer);
+				} else if (code == MEASURE_CODE) {
+					response = measure_handler(art, buffer);
 				}
 				gpio_put(PIN_BUSY_LINE, false);
 				sleep_ms(25);
@@ -103,7 +105,8 @@ void waitForCommand(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 				}
 				i2c_read_byte_raw(i2c0);
 				gpio_put(PICO_DEFAULT_LED_PIN, false);
-				i2c_write_byte_raw(i2c0, response);
+				i2c_write_byte_raw(i2c0, response & 0b11111111);
+				i2c_write_byte_raw(i2c0, (response >> 8) & 0b11111111);
 			}
 			memset(buffer, 0, BUFFER_SIZE);
 		}
@@ -112,8 +115,13 @@ void waitForCommand(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 
 
 void testAll(Artichoke *art) {
-	// artichokeHomeAxis(art);
-	artichokeMoveRel(art, 500, 0, 0, 1200, true);
+	home_axis(art);
+	home_cup_holder(art);
+	home_cup_dispenser(art);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_EXTENDED);
+	dispense_cup(art);
+	sleep_ms(1000);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
 }
 
 
@@ -154,7 +162,6 @@ int main() {
 	// waitForCommand(&art, buffer);
 	while (true) {
 		testAll(&art);
-		break;
 	}
 	return 0;
 }

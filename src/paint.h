@@ -13,7 +13,7 @@ typedef struct {
 	Vector *color;
 } PaintDispenser;
 
-void homePaintDispenser(PaintDispenser *pd);
-void movePaintDispenserHead(PaintDispenser *pd, int32_t syringe);
+void home_paint_dispenser(PaintDispenser *pd);
+void move_paint_dispenser_head(PaintDispenser *pd, int32_t syringe);
 
 #endif

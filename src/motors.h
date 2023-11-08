@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "artichoke.h"
 
-void motorOn(uint32_t motorIndex, bool direction);
-void motorsOff();
+void activate_motor(uint32_t motorIndex, bool direction);
+void deactivate_motors();
 
 #endif

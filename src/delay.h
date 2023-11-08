@@ -1,9 +1,23 @@
 #ifndef DELAY_HEADER
 #define DELAY_HEADER
 
-uint64_t curved_delay_us(double x);
-uint64_t curved_delay_fast_us(double x);
-uint64_t calculate_delay(double current, double total);
-uint64_t calculate_delay_fast(double current, double total);
+
+/**
+ * Calculates the delay in microseconds using the default timing curve.
+*/
+uint64_t delay_default_us(double current, double total);
+
+
+/**
+ * Calculates the delay in microseconds using the fast timing curve.
+*/
+uint64_t delay_fast_us(double current, double total);
+
+
+/**
+ * Calculates the delay in microseconds using the z only timing curve.
+*/
+uint64_t delay_z_us(double current, double total);
+
 
 #endif
