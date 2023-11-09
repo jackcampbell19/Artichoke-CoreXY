@@ -27,7 +27,7 @@ uint64_t delay_default_us(double current, double total) {
 
 
 uint64_t delay_fast_us(double current, double total) {
-	return _delay_us(current, total, 800, 800, 120);
+	return _delay_us(current, total, 600, 600, 120);
 }
 
 

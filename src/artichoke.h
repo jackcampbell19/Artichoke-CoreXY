@@ -70,7 +70,7 @@ void dispense_cup(Artichoke *art);
 /**
  * Sets the cup holder to one of the 3 positions.
 */
-void set_cup_holder_position(Artichoke *art, int32_t position);
+void set_cup_holder_position(Artichoke *art, int32_t position, bool moveTool);
 
 
 void home_cup_holder(Artichoke *art);

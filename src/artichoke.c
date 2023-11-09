@@ -151,10 +151,10 @@ void home_axis(Artichoke *art) {
 
 
 void home_all(Artichoke *art) {
-	home_axis(art);
 	home_cup_holder(art);
-	home_paint_dispenser(art->paintDispenser);
+	home_axis(art);
 	home_cup_dispenser();
+	// home_paint_dispenser(art->paintDispenser);
 }
 
 
@@ -165,7 +165,25 @@ void home_cup_dispenser() {
 
 
 void eject_cup(Artichoke *art) {
-
+	exchange_tool(art, TOOL_INDEX_CUP_EXTRACTOR);
+	Vector v;
+	vector_copy(&v, &art->position);
+	v.y = POSITION_Y_CLEARANCE;
+	v.z = POSITION_CUP_EJECTOR_Z_RECIEVE;
+	artichoke_move_line(art, &v, true);
+	v.x = POSITION_CUP_EJECTOR_X_BEFORE;
+	artichoke_move_line(art, &v, true);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD, false);
+	v.z = POSITION_CUP_EJECTOR_Z_EJECT;
+	artichoke_move_line(art, &v, true);
+	v.y = POSITION_CUP_EJECTOR_Y;
+	artichoke_move_line(art, &v, false);
+	v.x = POSITION_CUP_EJECTOR_X_AFTER;
+	artichoke_move_line(art, &v, false);
+	v.x = POSITION_CUP_EJECTOR_X_BEFORE;
+	artichoke_move_line(art, &v, false);
+	v.y = POSITION_Y_CLEARANCE;
+	artichoke_move_line(art, &v, true);
 }
 
 
@@ -181,11 +199,23 @@ void dispense_paint(Artichoke *art, Vector *color) {
 
 
 void dispense_cup(Artichoke *art) {
+	eject_cup(art);
+	exchange_tool(art, TOOL_INDEX_NONE);
+	Vector v;
+	vector_copy(&v, &art->position);
+	v.y = POSITION_Y_CLEARANCE;
+	artichoke_move_line(art, &v, true);
+	v.x = POSITION_CUP_DISPENSER_X;
+	artichoke_move_line(art, &v, true);
+	v.y = POSITION_CUP_DISPENSER_Y;
+	artichoke_move_line(art, &v, true);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_EXTENDED, true);
 	activate_motor(MOTOR_CUP_DISPENSER, true);
 	sleep_ms(2200);
 	activate_motor(MOTOR_CUP_DISPENSER, false);
 	sleep_ms(2200);
 	deactivate_motors();
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 }
 
 
@@ -196,10 +226,12 @@ void _wait_for_reflectance_value(bool value) {
 }
 
 
-void set_cup_holder_position(Artichoke *art, int32_t position) {
+void set_cup_holder_position(Artichoke *art, int32_t position, bool moveTool) {
 	int32_t delta = position - art->cupHolderPosition;
-	Vector v = {art->position.x, art->position.y, 0};
-	artichoke_move_line(art, &v, true);
+	if (moveTool) {
+		Vector v = {art->position.x, art->position.y, 0};
+		artichoke_move_line(art, &v, true);
+	}
 	activate_motor(MOTOR_CUP_HOLDER, delta >= 0);
 	for (size_t i = 0; i < abs(delta); i++) {
 		sleep_ms(1000);
@@ -224,9 +256,8 @@ bool exchange_tool(Artichoke *art, uint8_t toolIndex) {
 	if (toolIndex == art->toolIndex) {
 		return true;
 	}
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
-	home_axis(art);
-	Vector v = {0, POSITION_TOOL_CHANGER_Y_CLOSE, POSITION_TOOL_CHANGER_Z_RELEASE};
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
+	Vector v = {art->position.x, POSITION_Y_CLEARANCE, POSITION_TOOL_CHANGER_Z_RELEASE};
 	artichoke_move_line(art, &v, true);
 	// Put current tool away
 	if (art->toolIndex != TOOL_INDEX_NONE) {
@@ -239,6 +270,7 @@ bool exchange_tool(Artichoke *art, uint8_t toolIndex) {
 		v.z = POSITION_TOOL_CHANGER_Z_RELEASE;
 		artichoke_move_line(art, &v, true);
 	}
+	art->toolIndex = toolIndex;
 	if (toolIndex == TOOL_INDEX_NONE) {
 		return true;
 	}
@@ -250,7 +282,6 @@ bool exchange_tool(Artichoke *art, uint8_t toolIndex) {
 	artichoke_move_line(art, &v, true);
 	v.y = POSITION_TOOL_CHANGER_Y_CLOSE;
 	artichoke_move_line(art, &v, true);
-	art->toolIndex = toolIndex;
 	return true;
 }
 
@@ -291,7 +322,7 @@ void mix_paint(Artichoke *art) {
 	artichoke_move_line(art, &v, true);
 	v.x = POSITION_PAINT_MIXER_POWER_X;
 	artichoke_move_line(art, &v, true);
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD, true);
 	v.z = POSITION_PAINT_MIXER_INSERTED_Z;
 	artichoke_move_line(art, &v, true);
 	v.y = POSITION_PAINT_MIXER_POWER_Y;
@@ -301,6 +332,6 @@ void mix_paint(Artichoke *art) {
 	artichoke_move_line(art, &v, true);
 	v.z = 0;
 	artichoke_move_line(art, &v, true);
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 	wash_tool(art);
 }

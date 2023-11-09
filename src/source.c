@@ -139,6 +139,7 @@ int main() {
 	configure(&art);
 	uint8_t buffer[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
+	home_all(&art);
 	while (true) {
 		wait_for_command(&art, buffer);
 	}

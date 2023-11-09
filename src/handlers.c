@@ -73,12 +73,13 @@ uint16_t exhange_tool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 
 uint16_t cup_position_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	uint8_t pos = _extract_flag(buffer);
-	set_cup_holder_position(art, pos);
+	set_cup_holder_position(art, pos, true);
 	return SUCCESS_RESPONSE;
 }
 
 
 uint16_t dispense_paint_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	dispense_cup(art);
 	mix_paint(art);
 	return ERROR_RESPONSE;
 }
