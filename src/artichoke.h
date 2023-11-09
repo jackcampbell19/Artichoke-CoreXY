@@ -17,6 +17,7 @@ typedef struct {
 	Vector *limitSwitches;
 	PaintDispenser *paintDispenser;
 	int32_t cupHolderPosition;
+	uint8_t toolIndex;
 } Artichoke;
 
 
@@ -47,7 +48,10 @@ void _compute_steps(Vector *steps, Vector *delta);
  * Moves the Artichoke machine to the positon "tpos". Returns
  * true if the position is successful and false otherwise.
 */
-bool artichoke_set_position(Artichoke *art, Vector *tpos);
+bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast);
+
+
+bool artichoke_move_arc(Artichoke *art, Vector *center, Vector *v, double rotationDeg, bool fast);
 
 
 void home_axis(Artichoke *art);
@@ -79,6 +83,11 @@ void dispense_paint(Artichoke *art, Vector *color);
 
 
 bool move_axis_rel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t delay, bool ignoreBounds);
+
+
+bool exchange_tool(Artichoke *art, uint8_t toolIndex);
+
+void mix_paint(Artichoke *art);
 
 
 #endif

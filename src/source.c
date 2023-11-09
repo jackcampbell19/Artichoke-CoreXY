@@ -85,43 +85,23 @@ void wait_for_command(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	while (true) {
 		if (i2c_get_read_available(i2c0) > 0) {
 			buffer[0] = i2c_read_byte_raw(i2c0);
-			uint8_t code = buffer[0] >> 4;
-			if (code == HOME_CODE || code == MOVE_CODE || code == SHIFT_CODE) {
-				uint16_t response = ERROR_RESPONSE;
-				gpio_put(PIN_BUSY_LINE, true);
-				sleep_ms(25);
-				if (code == HOME_CODE) {
-					response = home_handler(art, buffer);
-				} else if (code == MOVE_CODE) {
-					response = move_handler(art, buffer);
-				} else if (code == MEASURE_CODE) {
-					response = measure_handler(art, buffer);
-				}
-				gpio_put(PIN_BUSY_LINE, false);
-				sleep_ms(25);
-				gpio_put(PICO_DEFAULT_LED_PIN, true);
-				while (i2c_get_read_available(i2c0) < 1) {
-					continue;
-				}
-				i2c_read_byte_raw(i2c0);
-				gpio_put(PICO_DEFAULT_LED_PIN, false);
-				i2c_write_byte_raw(i2c0, response & 0b11111111);
-				i2c_write_byte_raw(i2c0, (response >> 8) & 0b11111111);
+			gpio_put(PIN_BUSY_LINE, true);
+			sleep_ms(25);
+			uint16_t response = route_handler(art, buffer);
+			gpio_put(PIN_BUSY_LINE, false);
+			sleep_ms(25);
+			while (i2c_get_read_available(i2c0) < 1) {
+				continue;
 			}
+			i2c_read_byte_raw(i2c0);
+			gpio_put(PICO_DEFAULT_LED_PIN, false);
+			uint8_t src[2] = {response >> 8, response & 0b11111111};
+			i2c_write_blocking(i2c0, I2C_ADDR, src, 2, false);
+			// i2c_write_byte_raw(i2c0, response >> 8);
+			// i2c_write_byte_raw(i2c0, response & 0b11111111);
 			memset(buffer, 0, BUFFER_SIZE);
 		}
 	}
-}
-
-
-void testAll(Artichoke *art) {
-	home_axis(art);
-	home_cup_holder(art);
-	home_cup_dispenser(art);
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_EXTENDED);
-	dispense_cup(art);
-	sleep_ms(1000);
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
 }
 
 
@@ -152,16 +132,15 @@ int main() {
 		&zStepper,
 		&limitSwitches,
 		&paintDispenser,
-		CUP_HOLDER_POSITION_HIDDEN
+		CUP_HOLDER_POSITION_HIDDEN,
+		TOOL_INDEX_NONE
 	};
 	// Configure pins
 	configure(&art);
-	// artichokeHomeAll(&art);
 	uint8_t buffer[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
-	// waitForCommand(&art, buffer);
 	while (true) {
-		testAll(&art);
+		wait_for_command(&art, buffer);
 	}
 	return 0;
 }

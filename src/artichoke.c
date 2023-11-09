@@ -1,9 +1,12 @@
 #include "artichoke.h"
 #include "pico/stdlib.h"
-#include "math.h"
+#include <math.h>
 #include "delay.h"
 #include "constants.h"
 #include "motors.h"
+
+
+uint32_t _TOOL_POSITIONS[8] = {1415, 2475, 3565, 4000, 5000, 6000, 7000, 8000};
 
 
 bool _validate_position(Artichoke *art, Vector *tpos) {
@@ -50,7 +53,7 @@ void _compute_steps(Vector *steps, Vector *delta) {
 }
 
 
-bool artichoke_set_position(Artichoke *art, Vector *tpos) {
+bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast) {
 	/**
 	 * dx(x) = 1/2 (dx(a) + dx(b))
 	 * dx(y) = 1/2 (dx(a) - dx(b))
@@ -58,7 +61,7 @@ bool artichoke_set_position(Artichoke *art, Vector *tpos) {
 	if (!_validate_position(art, tpos)) {
 		return false;
 	}
-	double length = vector_length(&art->position, tpos);
+	double length = vector_distance(&art->position, tpos);
 	size_t rounded_length = (size_t) ceil(length);
 	if (rounded_length == 0) {
 		return true;
@@ -68,7 +71,7 @@ bool artichoke_set_position(Artichoke *art, Vector *tpos) {
 	Vector rebasedVector;
 	vector_copy(&rebasedVector, tpos);
 	vector_subtract(&rebasedVector, &art->position);
-	uint64_t (*delay_func)(double, double) = &delay_default_us;
+	uint64_t (*delay_func)(double, double) = fast ? &delay_fast_us : &delay_default_us;
 	if (rebasedVector.x == 0 && rebasedVector.y == 0) {
 		delay_func = &delay_z_us;
 	}
@@ -89,6 +92,21 @@ bool artichoke_set_position(Artichoke *art, Vector *tpos) {
 	art->position.x = tpos->x;
 	art->position.y = tpos->y;
 	art->position.z = tpos->z;
+	return true;
+}
+
+
+bool artichoke_move_arc(Artichoke *art, Vector *center, Vector *v, double rotationDeg, bool fast) {
+	double radius = vector_length(v);
+	size_t samples = ((size_t) 2 * M_PI * radius);
+	for (size_t i = 0; i < samples; i++) {
+		Vector sample;
+		vector_copy(&sample, v);
+		double sampleAngle = (((double) i) / ((double) samples)) * rotationDeg;
+		vector_rotate_floor(&sample, sampleAngle);
+		vector_add(&sample, center);
+		artichoke_move_line(art, &sample, fast);
+	}
 	return true;
 }
 
@@ -116,7 +134,7 @@ void home_axis(Artichoke *art) {
 	while (!gpio_get(art->limitSwitches->z)) {
 		move_axis_rel(art, 0, 0, -1, PULSE_DELAY_HOMING_Z, true);
 	}
-	move_axis_rel(art, 0, 0, HOME_OFFSET_Z, PULSE_DELAY_HOMING_Z, true);
+	move_axis_rel(art, 0, 0, HOME_OFFSET_Z + Z_TEMP_HOME_POSITION, PULSE_DELAY_HOMING_Z, true);
 	while (!gpio_get(art->limitSwitches->x)) {
 		move_axis_rel(art, -1, 0, 0, PULSE_DELAY_HOMING_XY, true);
 	}
@@ -125,6 +143,7 @@ void home_axis(Artichoke *art) {
 		move_axis_rel(art, 0, -1, 0, PULSE_DELAY_HOMING_XY, true);
 	}
 	move_axis_rel(art, 0, HOME_OFFSET_X_Y, 0, PULSE_DELAY_HOMING_XY, true);
+	move_axis_rel(art, 0, 0, -Z_TEMP_HOME_POSITION, PULSE_DELAY_HOMING_Z, true);
 	art->position.x = 0;
 	art->position.y = 0;
 	art->position.z = 0;
@@ -179,6 +198,8 @@ void _wait_for_reflectance_value(bool value) {
 
 void set_cup_holder_position(Artichoke *art, int32_t position) {
 	int32_t delta = position - art->cupHolderPosition;
+	Vector v = {art->position.x, art->position.y, 0};
+	artichoke_move_line(art, &v, true);
 	activate_motor(MOTOR_CUP_HOLDER, delta >= 0);
 	for (size_t i = 0; i < abs(delta); i++) {
 		sleep_ms(1000);
@@ -196,4 +217,90 @@ void home_cup_holder(Artichoke *art) {
 	_wait_for_reflectance_value(false);
 	deactivate_motors();
 	art->cupHolderPosition = 0;
+}
+
+
+bool exchange_tool(Artichoke *art, uint8_t toolIndex) {
+	if (toolIndex == art->toolIndex) {
+		return true;
+	}
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
+	home_axis(art);
+	Vector v = {0, POSITION_TOOL_CHANGER_Y_CLOSE, POSITION_TOOL_CHANGER_Z_RELEASE};
+	artichoke_move_line(art, &v, true);
+	// Put current tool away
+	if (art->toolIndex != TOOL_INDEX_NONE) {
+		v.x = _TOOL_POSITIONS[art->toolIndex];
+		artichoke_move_line(art, &v, true);
+		v.z = POSITION_TOOL_CHANGER_Z_GRIP;
+		artichoke_move_line(art, &v, true);
+		v.y = POSITION_TOOL_CHANGER_Y_HOVER;
+		artichoke_move_line(art, &v, true);
+		v.z = POSITION_TOOL_CHANGER_Z_RELEASE;
+		artichoke_move_line(art, &v, true);
+	}
+	if (toolIndex == TOOL_INDEX_NONE) {
+		return true;
+	}
+	// Pick up new tool
+	v.x = _TOOL_POSITIONS[toolIndex];
+	v.y = POSITION_TOOL_CHANGER_Y_HOVER;
+	artichoke_move_line(art, &v, true);
+	v.z = POSITION_TOOL_CHANGER_Z_GRIP;
+	artichoke_move_line(art, &v, true);
+	v.y = POSITION_TOOL_CHANGER_Y_CLOSE;
+	artichoke_move_line(art, &v, true);
+	art->toolIndex = toolIndex;
+	return true;
+}
+
+
+void wash_tool(Artichoke *art) {
+	Vector v = {art->position.x, POSITION_Y_CLEARANCE, 0};
+	artichoke_move_line(art, &v, true);
+	v.x = POSITION_WASHING_STATION_X;
+	artichoke_move_line(art, &v, true);
+	v.y = POSITION_WASHING_STATION_Y;
+	artichoke_move_line(art, &v, true);
+	gpio_put(PIN_ELECTROMAGNET_EN, true);
+	for (size_t i = 0; i < 5; i++) {
+		v.z = POSITION_WASHING_STATION_INSERT_Z;
+		artichoke_move_line(art, &v, true);
+		v.z = 0;
+		artichoke_move_line(art, &v, true);
+	}
+	gpio_put(PIN_ELECTROMAGNET_EN, false);
+	if (art->toolIndex != TOOL_INDEX_PAINT_MIXER && art->toolIndex != TOOL_INDEX_CUP_EXTRACTOR) {
+		v.z = POSITION_WASHING_STATION_WIPE_Z;
+		artichoke_move_line(art, &v, true);
+		for (size_t i = 0; i < 3; i++) {
+			v.x = POSITION_WASHING_STATION_WIPE_X;
+			artichoke_move_line(art, &v, true);
+			v.x = POSITION_WASHING_STATION_X;
+			artichoke_move_line(art, &v, true);
+		}
+	}
+	v.y = POSITION_Y_CLEARANCE;
+	artichoke_move_line(art, &v, true);
+}
+
+
+void mix_paint(Artichoke *art) {
+	exchange_tool(art, TOOL_INDEX_PAINT_MIXER);
+	Vector v = {art->position.x, POSITION_Y_CLEARANCE, 0};
+	artichoke_move_line(art, &v, true);
+	v.x = POSITION_PAINT_MIXER_POWER_X;
+	artichoke_move_line(art, &v, true);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD);
+	v.z = POSITION_PAINT_MIXER_INSERTED_Z;
+	artichoke_move_line(art, &v, true);
+	v.y = POSITION_PAINT_MIXER_POWER_Y;
+	artichoke_move_line(art, &v, true);
+	sleep_ms(10000);
+	v.y = POSITION_Y_CLEARANCE;
+	artichoke_move_line(art, &v, true);
+	v.z = 0;
+	artichoke_move_line(art, &v, true);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN);
+	wash_tool(art);
 }
