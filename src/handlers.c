@@ -1,6 +1,7 @@
 #include "handlers.h"
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
+#include <string.h>
 
 
 uint8_t _extract_flag(uint8_t buffer[BUFFER_SIZE]) {
@@ -64,7 +65,7 @@ uint16_t move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 
 uint16_t exhange_tool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	uint8_t toolIndex = _extract_flag(buffer);
-	if (exchange_tool(art, toolIndex)) {
+	if (load_tool(art, toolIndex)) {
 		return SUCCESS_RESPONSE;
 	}
 	return ERROR_RESPONSE;
@@ -79,8 +80,8 @@ uint16_t cup_position_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 
 
 uint16_t dispense_paint_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
-	dispense_cup(art);
-	mix_paint(art);
+	_read_from_i2c(COLOR_BUFFER_SIZE, 1, buffer);
+	dispense_paint(art, &buffer[1]);
 	return ERROR_RESPONSE;
 }
 
@@ -110,6 +111,8 @@ uint16_t measure_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 uint16_t move_arc_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	_read_from_i2c(14, 1, buffer);
 	uint8_t flag = _extract_flag(buffer);
+	uint8_t fast = flag & 0b0111;
+	uint8_t clockwise = flag & 0b1000;
 	int32_t x0 = buffer[1] << 8 | buffer[2];
 	int32_t y0 = buffer[3] << 8 | buffer[4];
 	int32_t z0 = buffer[5] << 8 | buffer[6];
@@ -119,7 +122,7 @@ uint16_t move_arc_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	int32_t deg = buffer[13] << 8 | buffer[14];
 	Vector center = {x0, y0, z0};
 	Vector v = {x1, y1, z1};
-	artichoke_move_arc(art, &center, &v, deg, flag != 0);
+	artichoke_move_arc(art, &center, &v, deg * (clockwise == 0 ? 1 : -1), fast != 0);
 	return SUCCESS_RESPONSE;
 }
 

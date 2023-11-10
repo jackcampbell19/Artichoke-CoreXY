@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "stepper.h"
 #include "paint.h"
+#include "constants.h"
 
 
 typedef struct {
@@ -18,30 +19,9 @@ typedef struct {
 	PaintDispenser *paintDispenser;
 	int32_t cupHolderPosition;
 	uint8_t toolIndex;
+	bool hasCup;
+	uint8_t *color;
 } Artichoke;
-
-
-/**
- * Returns true of the vector "tpos" lies within the bounds of the
- * Artichoke machine, false otherwise.
-*/
-bool _validate_position(Artichoke *art, Vector *tpos);
-
-
-/**
- * Moves the steppers of "art" in sync using the values of the "steps"
- * vector. Moves the a stepper x times, the b stepper y times, and the
- * z stepper z times.
-*/
-void _move_steppers(Artichoke *art, Vector *steps, uint64_t delay);
-
-
-/**
- * Computes the required number of steps/direction for each 
- * motor (a,b,z) to achieve the delta vector. Stores the result
- * in "steps".
-*/
-void _compute_steps(Vector *steps, Vector *delta);
 
 
 /**
@@ -51,21 +31,23 @@ void _compute_steps(Vector *steps, Vector *delta);
 bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast);
 
 
+/**
+ * Moves the gantry along an arc.
+*/
 bool artichoke_move_arc(Artichoke *art, Vector *center, Vector *v, double rotationDeg, bool fast);
 
 
+/**
+ * Homes the 3 axis of the gantry.
+*/
 void home_axis(Artichoke *art);
 
 
+/**
+ * Homes all components in the proper order.
+*/
 void home_all(Artichoke *art);
 
-
-void eject_cup(Artichoke *art);
-
-/**
- * Dispenses a single cup from the cup dispenser.
-*/
-void dispense_cup(Artichoke *art);
 
 /**
  * Sets the cup holder to one of the 3 positions.
@@ -79,15 +61,13 @@ void home_cup_holder(Artichoke *art);
 void home_cup_dispenser();
 
 
-void dispense_paint(Artichoke *art, Vector *color);
+void dispense_paint(Artichoke *art, uint8_t color[COLOR_BUFFER_SIZE]);
 
 
 bool move_axis_rel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t delay, bool ignoreBounds);
 
 
-bool exchange_tool(Artichoke *art, uint8_t toolIndex);
-
-void mix_paint(Artichoke *art);
+bool load_tool(Artichoke *art, uint8_t toolIndex);
 
 
 #endif

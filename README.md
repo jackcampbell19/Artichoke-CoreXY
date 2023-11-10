@@ -69,8 +69,10 @@ Each command consists of one `command` byte followed by 0 or more `data` bytes. 
 ### `Move Arc`
 * Code: `0b0111`
 * Flag:
-   * Default speed ramp: `0b0000`
-   * Fast speed ramp: `0b0001`
+   * Default speed ramp: `0b_000`
+   * Fast speed ramp: `0b_001`
+   * Clockwise: `0b0____`
+   * Counter-clockwise: `0b1___`
 * Data bytes:
     * Center X position: `2 bytes`
     * Center Y position: `2 bytes`

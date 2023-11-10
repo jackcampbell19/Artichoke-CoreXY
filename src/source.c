@@ -115,15 +115,15 @@ int main() {
 	// Limit switches
 	Vector limitSwitches = {PIN_X_LIM, PIN_Y_LIM, PIN_Z_LIM};
 	// Paint dispenser
-	Vector color = {-1, -1, -1};
 	PaintDispenser paintDispenser = {
 		&paintHorizontalStepper,
 		&paintVerticalStepper,
 		PIN_PAINT_LIM,
-		PIN_ELECTROMAGNET_EN,
-		&color
+		PIN_ELECTROMAGNET_EN
 	};
 	// Artichoke
+	uint8_t color[COLOR_BUFFER_SIZE];
+	memset(color, 0, COLOR_BUFFER_SIZE);
 	Artichoke art = {
 		{CXY_SIZE_X, CXY_SIZE_Y, CXY_SIZE_Z},
 		{0, 0, 0},
@@ -133,7 +133,9 @@ int main() {
 		&limitSwitches,
 		&paintDispenser,
 		CUP_HOLDER_POSITION_HIDDEN,
-		TOOL_INDEX_NONE
+		TOOL_INDEX_NONE,
+		false,
+		color
 	};
 	// Configure pins
 	configure(&art);
