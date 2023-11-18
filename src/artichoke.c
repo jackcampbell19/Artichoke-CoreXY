@@ -6,7 +6,7 @@
 #include "motors.h"
 #include <string.h>
 
-uint32_t _TOOL_POSITIONS[8] = {1415, 2475, 3565, 4000, 5000, 6000, 7000, 8000};
+uint32_t _TOOL_POSITIONS[8] = {1415, 2475, 3565, 0, 0, 0, 0, 0};
 
 
 /**
@@ -73,56 +73,56 @@ void _compute_steps(Vector *steps, Vector *delta) {
 void _wash_tool(Artichoke *art) {
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 	Vector v = {art->position.x, POSITION_Y_CLEARANCE, 0};
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_WASHING_STATION_X;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.y = POSITION_WASHING_STATION_Y;
-	artichoke_move_line(art, &v, true);
-	gpio_put(PIN_ELECTROMAGNET_EN, true);
-	for (size_t i = 0; i < 3; i++) {
+	artichoke_move_line(art, &v);
+	gpio_put(PIN_MOSFET_EN, true);
+	for (size_t i = 0; i < 8; i++) {
 		v.z = POSITION_WASHING_STATION_INSERT_Z;
-		artichoke_move_line(art, &v, true);
-		v.z = 0;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
+		v.z = POSITION_WASHING_STATION_HOVER_Z;
+		artichoke_move_line(art, &v);
 	}
-	for (size_t i = 0; i < 3; i++) {
-		v.z = 300;
-		artichoke_move_line(art, &v, true);
+	for (size_t i = 0; i < 8; i++) {
+		v.z = 400;
+		artichoke_move_line(art, &v);
 		v.z = 0;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 	}
-	gpio_put(PIN_ELECTROMAGNET_EN, false);
+	gpio_put(PIN_MOSFET_EN, false);
 	if (art->toolIndex != TOOL_INDEX_PAINT_MIXER && art->toolIndex != TOOL_INDEX_CUP_EXTRACTOR) {
 		v.z = POSITION_WASHING_STATION_WIPE_Z;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 		for (size_t i = 0; i < 3; i++) {
 			v.x = POSITION_WASHING_STATION_WIPE_X;
-			artichoke_move_line(art, &v, true);
+			artichoke_move_line(art, &v);
 			v.x = POSITION_WASHING_STATION_X;
-			artichoke_move_line(art, &v, true);
+			artichoke_move_line(art, &v);
 		}
 	}
 	v.y = POSITION_Y_CLEARANCE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 }
 
 
 void _mix_paint(Artichoke *art) {
 	load_tool(art, TOOL_INDEX_PAINT_MIXER);
 	Vector v = {art->position.x, POSITION_Y_CLEARANCE, 0};
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_PAINT_MIXER_POWER_X;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD, true);
 	v.z = POSITION_PAINT_MIXER_INSERTED_Z;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.y = POSITION_PAINT_MIXER_POWER_Y;
-	artichoke_move_line(art, &v, true);
-	sleep_ms(10000);
+	artichoke_move_line(art, &v);
+	sleep_ms(60000);
 	v.y = POSITION_Y_CLEARANCE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.z = 0;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 	_wash_tool(art);
 }
@@ -144,20 +144,20 @@ void _eject_cup(Artichoke *art) {
 	vector_copy(&v, &art->position);
 	v.y = POSITION_Y_CLEARANCE;
 	v.z = POSITION_CUP_EJECTOR_Z_RECIEVE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_CUP_EJECTOR_X_BEFORE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD, false);
 	v.y = POSITION_CUP_EJECTOR_Y;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.z = POSITION_CUP_EJECTOR_Z_EJECT;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_CUP_EJECTOR_X_AFTER;
-	artichoke_move_line(art, &v, false);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_CUP_EJECTOR_X_BEFORE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.y = POSITION_Y_CLEARANCE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	art->hasCup = false;
 }
 
@@ -173,23 +173,30 @@ void _load_cup(Artichoke *art) {
 	Vector v;
 	vector_copy(&v, &art->position);
 	v.y = POSITION_Y_CLEARANCE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.x = POSITION_CUP_DISPENSER_X;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.y = POSITION_CUP_DISPENSER_Y;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_EXTENDED, true);
 	activate_motor(MOTOR_CUP_DISPENSER, true);
 	sleep_ms(2200);
 	activate_motor(MOTOR_CUP_DISPENSER, false);
 	sleep_ms(2200);
 	deactivate_motors();
-	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 	art->hasCup = true;
 }
 
 
-bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast) {
+void convert_subspace_coordinate_to_position(Artichoke *art, Vector *sp, Vector *tpos) {
+	vector_copy(tpos, art->subspaceZero);
+	tpos->x += sp->x;
+	tpos->y += sp->y;
+	tpos->z -= sp->z;
+}
+
+
+bool _artichoke_move_line(Artichoke *art, Vector *tpos, Speed *speed) {
 	/**
 	 * dx(x) = 1/2 (dx(a) + dx(b))
 	 * dx(y) = 1/2 (dx(a) - dx(b))
@@ -207,10 +214,6 @@ bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast) {
 	Vector rebasedVector;
 	vector_copy(&rebasedVector, tpos);
 	vector_subtract(&rebasedVector, &art->position);
-	uint64_t (*delay_func)(double, double) = fast ? &delay_fast_us : &delay_default_us;
-	if (rebasedVector.x == 0 && rebasedVector.y == 0) {
-		delay_func = &delay_z_us;
-	}
 	for (size_t i = 0; i < rounded_length + 1; i++) {
 		Vector delta;
 		vector_copy(&delta, &rebasedVector);
@@ -222,13 +225,18 @@ bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast) {
 		}
 		Vector steps;
 		_compute_steps(&steps, &delta);
-		_move_steppers(art, &steps, delay_func(i, rounded_length + 1));
+		_move_steppers(art, &steps, ease_delay_us(i, rounded_length + 1, speed));
 		vector_add(&prevPos, &delta);
 	}
 	art->position.x = tpos->x;
 	art->position.y = tpos->y;
 	art->position.z = tpos->z;
 	return true;
+}
+
+
+bool artichoke_move_line(Artichoke *art, Vector *tpos) {
+	return _artichoke_move_line(art, tpos, art->speed);
 }
 
 
@@ -241,9 +249,14 @@ bool artichoke_move_arc(Artichoke *art, Vector *center, Vector *v, double rotati
 		double sampleAngle = (((double) i) / ((double) samples)) * rotationDeg;
 		vector_rotate_floor(&sample, sampleAngle);
 		vector_add(&sample, center);
-		artichoke_move_line(art, &sample, fast);
+		artichoke_move_line(art, &sample);
 	}
 	return true;
+}
+
+
+uint16_t artichoke_configure(Artichoke *art, uint8_t parameter, uint8_t buffer[CONFIGURE_BUFFER_SIZE]) {
+	return SUCCESS_RESPONSE;
 }
 
 
@@ -266,10 +279,10 @@ bool move_axis_rel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t del
 
 void home_axis(Artichoke *art) {
 	Vector steps;
-	move_axis_rel(art, 0, 1000, 0, PULSE_DELAY_HOMING_XY, true);
 	while (!gpio_get(art->limitSwitches->z)) {
 		move_axis_rel(art, 0, 0, -1, PULSE_DELAY_HOMING_Z, true);
 	}
+	move_axis_rel(art, 0, 1000, 0, PULSE_DELAY_HOMING_XY, true);
 	move_axis_rel(art, 0, 0, HOME_OFFSET_Z + Z_TEMP_HOME_POSITION, PULSE_DELAY_HOMING_Z, true);
 	while (!gpio_get(art->limitSwitches->x)) {
 		move_axis_rel(art, -1, 0, 0, PULSE_DELAY_HOMING_XY, true);
@@ -286,11 +299,10 @@ void home_axis(Artichoke *art) {
 }
 
 
-void home_all(Artichoke *art) {
+void home_initial(Artichoke *art) {
 	home_cup_holder(art);
 	home_axis(art);
 	home_cup_dispenser();
-	// home_paint_dispenser(art->paintDispenser);
 }
 
 
@@ -304,10 +316,33 @@ void home_cup_dispenser() {
  * Dispenses the specified color into the cup. Loads/exchanges the cup if required.
 */
 void dispense_paint(Artichoke *art, uint8_t color[COLOR_BUFFER_SIZE]) {
+	gpio_put(PIN_PAINT_EN, false);
 	if (!art->hasCup || memcmp(art->color, color, COLOR_BUFFER_SIZE) != 0) {
 		_load_cup(art);
 	}
-	_mix_paint(art);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_STANDARD, true);
+	Vector v = {art->position.x, POSITION_Y_CLEARANCE, 0};
+	artichoke_move_line(art, &v);
+	v.x = POSITION_PAINT_DISPENSER_X;
+	artichoke_move_line(art, &v);
+	v.y = POSITION_PAINT_DISPENSER_Y;
+	artichoke_move_line(art, &v);
+	set_cup_holder_position(art, CUP_HOLDER_POSITION_EXTENDED, true);
+	home_paint_dispenser(art->paintDispenser);
+	uint8_t colorCount = 0;
+	for (size_t i = 0; i < COLOR_BUFFER_SIZE; i++) {
+		uint8_t quantity = color[i];
+		if (quantity == 0) {
+			continue;
+		}
+		colorCount += 1;
+		paint_dispenser_dispense_quantity(art->paintDispenser, i, quantity);
+	}
+	home_paint_dispenser(art->paintDispenser);
+	gpio_put(PIN_PAINT_EN, true);
+	if (colorCount > 1) {
+		_mix_paint(art);
+	}
 }
 
 
@@ -318,9 +353,9 @@ void set_cup_holder_position(Artichoke *art, int32_t position, bool moveTool) {
 	int32_t delta = position - art->cupHolderPosition;
 	if (moveTool) {
 		Vector v = {art->position.x, art->position.y, 0};
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 	}
-	activate_motor(MOTOR_CUP_HOLDER, delta >= 0);
+	activate_motor(MOTOR_CUP_HOLDER, delta <= 0);
 	for (size_t i = 0; i < abs(delta); i++) {
 		sleep_ms(1000);
 		_wait_for_reflectance_value(false);
@@ -331,9 +366,9 @@ void set_cup_holder_position(Artichoke *art, int32_t position, bool moveTool) {
 
 
 void home_cup_holder(Artichoke *art) {
-	activate_motor(MOTOR_CUP_HOLDER, false);
-	sleep_ms(6000);
 	activate_motor(MOTOR_CUP_HOLDER, true);
+	sleep_ms(4500);
+	activate_motor(MOTOR_CUP_HOLDER, false);
 	_wait_for_reflectance_value(false);
 	deactivate_motors();
 	art->cupHolderPosition = 0;
@@ -346,17 +381,17 @@ bool load_tool(Artichoke *art, uint8_t toolIndex) {
 	}
 	set_cup_holder_position(art, CUP_HOLDER_POSITION_HIDDEN, true);
 	Vector v = {art->position.x, POSITION_Y_CLEARANCE, POSITION_TOOL_CHANGER_Z_RELEASE};
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	// Put current tool away
 	if (art->toolIndex != TOOL_INDEX_NONE) {
 		v.x = _TOOL_POSITIONS[art->toolIndex];
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 		v.z = POSITION_TOOL_CHANGER_Z_GRIP;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 		v.y = POSITION_TOOL_CHANGER_Y_HOVER;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 		v.z = POSITION_TOOL_CHANGER_Z_RELEASE;
-		artichoke_move_line(art, &v, true);
+		artichoke_move_line(art, &v);
 	}
 	art->toolIndex = toolIndex;
 	if (toolIndex == TOOL_INDEX_NONE) {
@@ -364,11 +399,12 @@ bool load_tool(Artichoke *art, uint8_t toolIndex) {
 	}
 	// Pick up new tool
 	v.x = _TOOL_POSITIONS[toolIndex];
+	artichoke_move_line(art, &v);
 	v.y = POSITION_TOOL_CHANGER_Y_HOVER;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.z = POSITION_TOOL_CHANGER_Z_GRIP;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	v.y = POSITION_TOOL_CHANGER_Y_CLOSE;
-	artichoke_move_line(art, &v, true);
+	artichoke_move_line(art, &v);
 	return true;
 }

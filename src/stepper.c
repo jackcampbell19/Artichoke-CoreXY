@@ -6,6 +6,7 @@
 void move_stepper_abs(Stepper *stepper, int32_t targetStep, uint64_t delay) {
 	int32_t dx = targetStep - stepper->current;
 	move_stepper_rel(stepper, abs(dx), dx >= 0, delay);
+	stepper->current = targetStep;
 }
 
 
@@ -17,5 +18,5 @@ void move_stepper_rel(Stepper *stepper, int32_t steps, bool direction, uint64_t 
 		gpio_put(stepper->stp, false);
 		sleep_us(delay);
 	}
-	stepper->current + (direction ? steps : -steps);
+	stepper->current += (direction ? steps : -steps);
 }

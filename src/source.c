@@ -68,6 +68,7 @@ void configure(Artichoke *art) {
 	init_in(art->paintDispenser->limitSwitch);
 	init_stepper(art->paintDispenser->horizontalStepper, true);
 	init_stepper(art->paintDispenser->verticalStepper, false);
+	gpio_put(PIN_PAINT_EN, true);
 	// Motors
 	init_out(PIN_IN1);
 	init_out(PIN_IN2_IN3);
@@ -119,11 +120,15 @@ int main() {
 		&paintHorizontalStepper,
 		&paintVerticalStepper,
 		PIN_PAINT_LIM,
-		PIN_ELECTROMAGNET_EN
+		PIN_MOSFET_EN
 	};
 	// Artichoke
 	uint8_t color[COLOR_BUFFER_SIZE];
 	memset(color, 0, COLOR_BUFFER_SIZE);
+	Vector subspaceZero = {POSITION_X_SUBSPACE_ZERO, POSITION_Y_SUBSPACE_ZERO, CXY_SIZE_Z};
+	Speed speed = {600, 600, 120};
+	Speed zSpeed = {1000, 200, 80};
+	Speed defaultSpeed = {600, 600, 120};
 	Artichoke art = {
 		{CXY_SIZE_X, CXY_SIZE_Y, CXY_SIZE_Z},
 		{0, 0, 0},
@@ -135,13 +140,17 @@ int main() {
 		CUP_HOLDER_POSITION_HIDDEN,
 		TOOL_INDEX_NONE,
 		false,
-		color
+		color,
+		&subspaceZero,
+		&speed,
+		&defaultSpeed,
+		&zSpeed
 	};
 	// Configure pins
 	configure(&art);
 	uint8_t buffer[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
-	home_all(&art);
+	home_initial(&art);
 	while (true) {
 		wait_for_command(&art, buffer);
 	}

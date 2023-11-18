@@ -1,23 +1,18 @@
 #ifndef DELAY_HEADER
 #define DELAY_HEADER
 
-
-/**
- * Calculates the delay in microseconds using the default timing curve.
-*/
-uint64_t delay_default_us(double current, double total);
+#include <stdint.h>
+#include <stdlib.h>
 
 
-/**
- * Calculates the delay in microseconds using the fast timing curve.
-*/
-uint64_t delay_fast_us(double current, double total);
+typedef struct {
+    double ramp;
+    double max;
+    double min;
+} Speed;
 
 
-/**
- * Calculates the delay in microseconds using the z only timing curve.
-*/
-uint64_t delay_z_us(double current, double total);
+uint64_t ease_delay_us(double current, double total, Speed *speed);
 
 
 #endif

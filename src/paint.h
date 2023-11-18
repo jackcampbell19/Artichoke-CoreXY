@@ -13,6 +13,6 @@ typedef struct {
 } PaintDispenser;
 
 void home_paint_dispenser(PaintDispenser *pd);
-void move_paint_dispenser_head(PaintDispenser *pd, int32_t syringe);
+void paint_dispenser_dispense_quantity(PaintDispenser *pd, int32_t syringe, uint8_t quantity);
 
 #endif

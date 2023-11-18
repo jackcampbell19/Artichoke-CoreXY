@@ -7,6 +7,7 @@
 #include "stepper.h"
 #include "paint.h"
 #include "constants.h"
+#include "delay.h"
 
 
 typedef struct {
@@ -21,6 +22,10 @@ typedef struct {
 	uint8_t toolIndex;
 	bool hasCup;
 	uint8_t *color;
+	Vector *subspaceZero;
+	Speed *speed;
+	Speed *defaultSpeed;
+	Speed *zSpeed;
 } Artichoke;
 
 
@@ -28,7 +33,7 @@ typedef struct {
  * Moves the Artichoke machine to the positon "tpos". Returns
  * true if the position is successful and false otherwise.
 */
-bool artichoke_move_line(Artichoke *art, Vector *tpos, bool fast);
+bool artichoke_move_line(Artichoke *art, Vector *tpos);
 
 
 /**
@@ -46,7 +51,7 @@ void home_axis(Artichoke *art);
 /**
  * Homes all components in the proper order.
 */
-void home_all(Artichoke *art);
+void home_initial(Artichoke *art);
 
 
 /**
@@ -68,6 +73,10 @@ bool move_axis_rel(Artichoke *art, int32_t x, int32_t y, int32_t z, uint64_t del
 
 
 bool load_tool(Artichoke *art, uint8_t toolIndex);
+
+uint16_t artichoke_configure(Artichoke *art, uint8_t parameter, uint8_t buffer[CONFIGURE_BUFFER_SIZE]);
+
+void convert_subspace_coordinate_to_position(Artichoke *art, Vector *sp, Vector *tpos);
 
 
 #endif

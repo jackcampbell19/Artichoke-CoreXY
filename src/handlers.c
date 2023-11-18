@@ -2,6 +2,7 @@
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
 #include <string.h>
+#include "motors.h"
 
 
 uint8_t _extract_flag(uint8_t buffer[BUFFER_SIZE]) {
@@ -49,14 +50,29 @@ uint16_t home_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 uint16_t move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	_read_from_i2c(6, 1, buffer);
 	uint8_t flag = _extract_flag(buffer);
+	bool fast = (flag & 1) != 0;
+	uint8_t axisFilter = (flag & 0b0110) >> 1;
+	bool subspace = (flag & 0b1000) >> 3 == 1;
 	int32_t x = buffer[1] << 8 | buffer[2];
 	int32_t y = buffer[3] << 8 | buffer[4];
 	int32_t z = buffer[5] << 8 | buffer[6];
-	x *= XY_MULTIPLIER;
-	y *= XY_MULTIPLIER;
-	z *= Z_MULTIPLIER;
+	if (axisFilter == 1) {
+		y = art->position.y;
+		z = art->position.z;
+	} else if (axisFilter == 2) {
+		x = art->position.x;
+		z = art->position.z;
+	} else if (axisFilter == 3) {
+		x = art->position.x;
+		y = art->position.y;
+	}
 	Vector position = {x, y, z};
-	if (!artichoke_move_line(art, &position, flag != 0)) {
+	if (subspace) {
+		Vector tpos;
+		convert_subspace_coordinate_to_position(art, &position, &tpos);
+		vector_copy(&position, &tpos);
+	}
+	if (!artichoke_move_line(art, &position)) {
 		return ERROR_RESPONSE;
 	}
 	return SUCCESS_RESPONSE;
@@ -73,8 +89,10 @@ uint16_t exhange_tool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 
 
 uint16_t cup_position_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
-	uint8_t pos = _extract_flag(buffer);
-	set_cup_holder_position(art, pos, true);
+	uint8_t flag = _extract_flag(buffer);
+	uint8_t pos = flag & 0b0111;
+	uint8_t moveTool = (flag & 0b1000) >> 3;
+	set_cup_holder_position(art, pos, moveTool == 1);
 	return SUCCESS_RESPONSE;
 }
 
@@ -82,11 +100,6 @@ uint16_t cup_position_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 uint16_t dispense_paint_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	_read_from_i2c(COLOR_BUFFER_SIZE, 1, buffer);
 	dispense_paint(art, &buffer[1]);
-	return ERROR_RESPONSE;
-}
-
-
-uint16_t subspace_move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	return ERROR_RESPONSE;
 }
 
@@ -112,7 +125,7 @@ uint16_t move_arc_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	_read_from_i2c(14, 1, buffer);
 	uint8_t flag = _extract_flag(buffer);
 	uint8_t fast = flag & 0b0111;
-	uint8_t clockwise = flag & 0b1000;
+	uint8_t clockwise = (flag & 0b1000) >> 3;
 	int32_t x0 = buffer[1] << 8 | buffer[2];
 	int32_t y0 = buffer[3] << 8 | buffer[4];
 	int32_t z0 = buffer[5] << 8 | buffer[6];
@@ -124,6 +137,13 @@ uint16_t move_arc_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	Vector v = {x1, y1, z1};
 	artichoke_move_arc(art, &center, &v, deg * (clockwise == 0 ? 1 : -1), fast != 0);
 	return SUCCESS_RESPONSE;
+}
+
+
+uint16_t configure_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	_read_from_i2c(25, 1, buffer);
+	uint8_t parameter = buffer[1];
+	return artichoke_configure(art, buffer[1], &buffer[2]);
 }
 
 
@@ -139,8 +159,6 @@ uint16_t route_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 		return cup_position_handler(art, buffer);
 	} else if (code == DISPENSE_PAINT_CODE) {
 		return dispense_paint_handler(art, buffer);
-	} else if (code == SUBSPACE_MOVE_CODE) {
-		return subspace_move_handler(art, buffer);
 	} else if (code == MEASURE_CODE) {
 		return measure_handler(art, buffer);
 	} else if (code == MOVE_ARC_CODE) {
