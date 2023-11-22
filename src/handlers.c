@@ -50,27 +50,26 @@ uint16_t home_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 uint16_t move_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	_read_from_i2c(6, 1, buffer);
 	uint8_t flag = _extract_flag(buffer);
-	bool fast = (flag & 1) != 0;
-	uint8_t axisFilter = (flag & 0b0110) >> 1;
+	uint8_t axisFilter = (flag & 0b0110);
 	bool subspace = (flag & 0b1000) >> 3 == 1;
 	int32_t x = buffer[1] << 8 | buffer[2];
 	int32_t y = buffer[3] << 8 | buffer[4];
 	int32_t z = buffer[5] << 8 | buffer[6];
-	if (axisFilter == 1) {
-		y = art->position.y;
-		z = art->position.z;
-	} else if (axisFilter == 2) {
-		x = art->position.x;
-		z = art->position.z;
-	} else if (axisFilter == 3) {
-		x = art->position.x;
-		y = art->position.y;
-	}
 	Vector position = {x, y, z};
 	if (subspace) {
 		Vector tpos;
 		convert_subspace_coordinate_to_position(art, &position, &tpos);
 		vector_copy(&position, &tpos);
+	}
+	if (axisFilter == 0b0010) {
+		position.y = art->position.y;
+		position.z = art->position.z;
+	} else if (axisFilter == 0b0100) {
+		position.x = art->position.x;
+		position.z = art->position.z;
+	} else if (axisFilter == 0b0110) {
+		position.x = art->position.x;
+		position.y = art->position.y;
 	}
 	if (!artichoke_move_line(art, &position)) {
 		return ERROR_RESPONSE;
@@ -147,6 +146,12 @@ uint16_t configure_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 }
 
 
+uint16_t wash_tool_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
+	wash_tool(art);
+	return SUCCESS_RESPONSE;
+}
+
+
 uint16_t route_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 	uint8_t code = _extract_code(buffer);
 	if (code == HOME_CODE) {
@@ -163,6 +168,11 @@ uint16_t route_handler(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 		return measure_handler(art, buffer);
 	} else if (code == MOVE_ARC_CODE) {
 		return move_arc_handler(art, buffer);
+	} else if (code == CONFIGURE_CODE) {
+		return configure_handler(art, buffer);
+	} else if (code == WASH_TOOL_CODE) {
+		return wash_tool_handler(art, buffer);
 	}
+	// Todo: flush buffer if code invalid
 	return ERROR_RESPONSE;
 }

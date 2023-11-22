@@ -24,8 +24,6 @@ typedef struct {
 	uint8_t *color;
 	Vector *subspaceZero;
 	Speed *speed;
-	Speed *defaultSpeed;
-	Speed *zSpeed;
 } Artichoke;
 
 
@@ -77,6 +75,8 @@ bool load_tool(Artichoke *art, uint8_t toolIndex);
 uint16_t artichoke_configure(Artichoke *art, uint8_t parameter, uint8_t buffer[CONFIGURE_BUFFER_SIZE]);
 
 void convert_subspace_coordinate_to_position(Artichoke *art, Vector *sp, Vector *tpos);
+
+void wash_tool(Artichoke *art);
 
 
 #endif

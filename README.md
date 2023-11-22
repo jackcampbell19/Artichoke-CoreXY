@@ -22,6 +22,10 @@ Each command consists of one `command` byte followed by 0 or more `data` bytes. 
 * Flag:
    * Machine space: `0b0____`
    * Subspace: `0b1____`
+   * Axis filter: `0b_XX_`
+      * X only: `01`
+      * Y only: `10`
+      * Z only: `11`
 * Data bytes:
     * X position: `2 bytes`
     * Y position: `2 bytes`
@@ -53,6 +57,7 @@ Each command consists of one `command` byte followed by 0 or more `data` bytes. 
 * Flag: `none`
 * Data bytes:
    * Parameter ID: `1 byte`
+      * Configure speed: `0b00000000` (aka. `0`): ramp, min, max (each 2 bytes)
    * Value bytes: `24 bytes`
 * Total bytes: `26`
 
@@ -81,3 +86,9 @@ Each command consists of one `command` byte followed by 0 or more `data` bytes. 
     * Radius Z position: `2 bytes`
     * Rotation Degrees: `2 bytes`
 * Total bytes: `15`
+
+### `Wash Tool`
+* Code: `0b1000` (aka. `8`)
+* Flag: `none`
+* Data bytes: `none`
+* Total bytes: `1`

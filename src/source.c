@@ -87,8 +87,8 @@ void wait_for_command(Artichoke *art, uint8_t buffer[BUFFER_SIZE]) {
 		if (i2c_get_read_available(i2c0) > 0) {
 			buffer[0] = i2c_read_byte_raw(i2c0);
 			gpio_put(PIN_BUSY_LINE, true);
-			sleep_ms(25);
 			uint16_t response = route_handler(art, buffer);
+			sleep_ms(25);
 			gpio_put(PIN_BUSY_LINE, false);
 			sleep_ms(25);
 			while (i2c_get_read_available(i2c0) < 1) {
@@ -127,8 +127,6 @@ int main() {
 	memset(color, 0, COLOR_BUFFER_SIZE);
 	Vector subspaceZero = {POSITION_X_SUBSPACE_ZERO, POSITION_Y_SUBSPACE_ZERO, CXY_SIZE_Z};
 	Speed speed = {600, 600, 120};
-	Speed zSpeed = {1000, 200, 80};
-	Speed defaultSpeed = {600, 600, 120};
 	Artichoke art = {
 		{CXY_SIZE_X, CXY_SIZE_Y, CXY_SIZE_Z},
 		{0, 0, 0},
@@ -142,9 +140,7 @@ int main() {
 		false,
 		color,
 		&subspaceZero,
-		&speed,
-		&defaultSpeed,
-		&zSpeed
+		&speed
 	};
 	// Configure pins
 	configure(&art);
